@@ -76,7 +76,6 @@ def detect_if_ECB(oracle: Oracle, blockSize: int) -> bool:
     cipher = oracle(bytes(blockSize*2))
     return True if (cipher[:blockSize] == cipher[blockSize:blockSize*2]) else False
 
-
 def decrypt_byte(prefix: bytes, block: bytes, oracle: Oracle, blockSize: int) -> bytes:
     b = None
 
@@ -89,9 +88,13 @@ def decrypt_byte(prefix: bytes, block: bytes, oracle: Oracle, blockSize: int) ->
     assert b is not None
     return b
 
-                
-    
+def make_codebook(prefix: bytes, oracle: Oracle, blockSize: int) -> dict[bytes, bytes]:                
+    codebook = {}
+    for b in range(256):
+        byte = bytes([b])
+        cipher = prefix+byte
+        firstBlock = oracle(cipher)[:blockSize]
+        codebook[firstBlock] = byte
 
-
-
+    return codebook
 
