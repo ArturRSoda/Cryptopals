@@ -15,22 +15,31 @@ def make_oracle() -> Oracle:
 
     return oracle
 
-
 oracle = make_oracle()
 blockSize, postfixSize = guess_blockSize_postfixSize(oracle)
 
 if (not detect_if_ECB(oracle, blockSize)):
     exit()
 
-cipherBlocks = [split_bytes_in_chunks(oracle(bytes(15-n)), blockSize) for n in range(blockSize)]
-allCipherBlocks = [block for blocks in zip(*cipherBlocks) for block in blocks]
-blocksToDecrypt = allCipherBlocks[:postfixSize]
+cipherBlocks = [split_bytes_in_chunks(oracle(bytes((blockSize-1)-n)), blockSize) for n in range(blockSize)]
 
+postfix = b''
 prefix = bytes(blockSize-1)
-for block in blocksToDecrypt:
-    codebook = make_codebook(prefix[-15:], oracle, blockSize)
-    prefix += codebook[block]
+nCipher = nBlock = 0
+while (len(postfix) < postfixSize):
 
-plainText = prefix[15:]
-print(plainText.decode())
+    block = cipherBlocks[nCipher][nBlock]
+    codebook = make_codebook(prefix, oracle, blockSize)
+    prefix = prefix[1:] + codebook[block]
+    postfix += codebook[block]
+
+    nCipher += 1
+    if (nCipher >= len(cipherBlocks)):
+        nCipher = 0
+
+        nBlock += 1
+        if (nBlock >= len(cipherBlocks[nCipher])):
+            nBlock = 0
+
+print(postfix.decode())
 
