@@ -1,8 +1,6 @@
-from re import split
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 from Crypto.Random import get_random_bytes
-from base64 import b64decode
 
 from random import randint
 from typing import Callable
@@ -97,4 +95,12 @@ def make_codebook(prefix: bytes, oracle: Oracle, blockSize: int) -> dict[bytes, 
         codebook[firstBlock] = byte
 
     return codebook
+
+def parse(profile: bytes) -> dict[bytes, bytes]:
+    return {key : value for key, value in [pair.split(b"=") for pair in profile.split(b"&")]}
+
+def profile_for(email: bytes) -> bytes:
+    return b"email=%s&uid=10&role=user" % email.translate(None, b"&=")
+
+
 
