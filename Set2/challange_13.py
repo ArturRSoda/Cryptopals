@@ -1,25 +1,21 @@
-from utils import profile_for, encrypt_AES_ECB, decrypt_AES_ECB, parse
+from utils import profile_for, encrypt_AES_ECB, decrypt_AES_ECB, parse, cut_and_past_atack
 
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 
-def set_admin_role(email: bytes, key: bytes) -> bytes:
-    email2 = email[:10] + pad(b"admin", AES.block_size) + email[10:]
-
-    cipher1 = encrypt_AES_ECB(pad(profile_for(email), AES.block_size), key)
-    cipher2 = encrypt_AES_ECB(pad(profile_for(email2), AES.block_size), key)
-
-    return cipher1[:32]+cipher2[16:32]
-
+def oracle(text: bytes, key: bytes, enc_dec: str) -> bytes:
+    if enc_dec == "ENC":
+        return encrypt_AES_ECB(pad(profile_for(text), AES.block_size), key)
+    else:
+        return unpad(decrypt_AES_ECB(text, key), AES.block_size)
 
 
 key = get_random_bytes(16)
 
-email = b"foooo@bar.com"
+email = b"emailde13digi"
 
-evilCipher= set_admin_role(email, key)
-pt = unpad(decrypt_AES_ECB(evilCipher, key), AES.block_size)
+pt = cut_and_past_atack(email, oracle, key)
 
 profile = parse(pt)
 for k, v in profile.items():

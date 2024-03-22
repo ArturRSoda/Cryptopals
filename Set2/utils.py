@@ -5,8 +5,10 @@ from Crypto.Random import get_random_bytes
 from random import randint
 from typing import Callable
     
+from base64 import b64decode
 
-Oracle = Callable[[bytes], bytes]
+OracleChall12 = Callable[[bytes], bytes]
+OracleChall13 = Callable[[bytes, bytes, str], bytes]
 
 def bytes_xor(b1: bytes, b2: bytes) -> bytes:
     return bytes(a^b for (a,b) in zip(b1, b2))
@@ -52,7 +54,7 @@ def detect_ECB_CBC(cipher: bytes, blockSize: int) -> str:
     cipherChunks = split_bytes_in_chunks(cipher, blockSize)
     return "ECB" if (cipherChunks[1] == cipherChunks[2]) else "CBC"
 
-def guess_blockSize_postfixSize(oracle: Oracle) -> tuple[int, int]:
+def guess_blockSize_postfixSize(oracle: OracleChall12) -> tuple[int, int]:
     blockSize = -1
     postfixSize = -1
 
@@ -70,11 +72,11 @@ def guess_blockSize_postfixSize(oracle: Oracle) -> tuple[int, int]:
 
     return (blockSize, postfixSize)
 
-def detect_if_ECB(oracle: Oracle, blockSize: int) -> bool:
+def detect_if_ECB(oracle: OracleChall12, blockSize: int) -> bool:
     cipher = oracle(bytes(blockSize*2))
     return True if (cipher[:blockSize] == cipher[blockSize:blockSize*2]) else False
 
-def decrypt_byte(prefix: bytes, block: bytes, oracle: Oracle, blockSize: int) -> bytes:
+def decrypt_byte(prefix: bytes, block: bytes, oracle: OracleChall12, blockSize: int) -> bytes:
     b = None
 
     for b in range(256):
@@ -86,21 +88,56 @@ def decrypt_byte(prefix: bytes, block: bytes, oracle: Oracle, blockSize: int) ->
     assert b is not None
     return b
 
-def make_codebook(prefix: bytes, oracle: Oracle, blockSize: int) -> dict[bytes, bytes]:                
+def make_codebook(prefix: bytes, oracle: OracleChall12, blockSize: int, block: int) -> dict[bytes, bytes]:                
     codebook = {}
     for b in range(256):
+
         byte = bytes([b])
         cipher = prefix+byte
-        firstBlock = oracle(cipher)[:blockSize]
-        codebook[firstBlock] = byte
+        secondBlock = oracle(cipher)[blockSize*block:(blockSize*block)+blockSize]
+        codebook[secondBlock] = byte
 
     return codebook
+
+def discover_postfix(prefix: bytes, cipherBlocks: list[list[bytes]], oracle: OracleChall12, blockSize: int, postfixSize: int, blockToCheck: int) -> bytes:
+
+    postfix = b''
+    nCipher = 0
+    nBlock = blockToCheck
+
+    while (len(postfix) < postfixSize):
+
+        block = cipherBlocks[nCipher][nBlock]
+        codebook = make_codebook(prefix, oracle, blockSize, blockToCheck)
+        prefix = prefix[1:] + codebook[block]
+        postfix += codebook[block]
+
+        nCipher += 1
+        if (nCipher >= len(cipherBlocks)):
+            nCipher = 0
+
+            nBlock += 1
+            if (nBlock >= len(cipherBlocks[nCipher])):
+                nBlock = blockToCheck
+
+    return postfix
+
 
 def parse(profile: bytes) -> dict[bytes, bytes]:
     return {key : value for key, value in [pair.split(b"=") for pair in profile.split(b"&")]}
 
 def profile_for(email: bytes) -> bytes:
     return b"email=%s&uid=10&role=user" % email.translate(None, b"&=")
+
+def cut_and_past_atack(email: bytes, oracle: OracleChall13, key: bytes) -> bytes:
+    evilEmail = email[:10] + pad(b"admin", AES.block_size) + email[10:]
+
+    cipherOrig = oracle(email, key, "ENC")
+    adminCipher = oracle(evilEmail, key, "ENC")
+
+    evilCipher = cipherOrig[:32] + adminCipher[16:32]
+
+    return oracle(evilCipher, key, "DEC")
 
 
 
