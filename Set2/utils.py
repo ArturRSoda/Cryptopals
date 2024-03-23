@@ -1,12 +1,10 @@
 from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad
+from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
 
 from random import randint
 from typing import Callable
     
-from base64 import b64decode
-
 OracleChall12 = Callable[[bytes], bytes]
 OracleChall13 = Callable[[bytes, bytes, str], bytes]
 
@@ -24,6 +22,31 @@ def decrypt_AES_ECB(cipher: bytes, key: bytes) -> bytes:
 
 def encrypt_AES_CBC(cipher: bytes, key: bytes, iv: bytes) -> bytes:
     return AES.new(key, AES.MODE_CBC, iv).encrypt(cipher)
+
+def pad_pkcs7(byteText: bytes, blockSize: int = AES.block_size) -> bytes:
+    return pad(byteText, blockSize)
+
+def unpad_pkcs7(byteText: bytes, blockSize: int = AES.block_size) -> bytes:
+    return unpad(byteText, blockSize)
+
+def strip_padding_pkcs7(byteText: bytes, blockSize: int = AES.block_size) -> bytes:
+    print(len(byteText))
+    print(blockSize)
+    if ((len(byteText) % blockSize) != 0):
+        raise Exception("Error: Bad Padding")
+
+    p = byteText[-1]
+    for _ in range(p-1):
+        if ((p != byteText[-2]) or (p == 0)):
+            raise Exception("Error: Bad Padding")
+        else:
+            byteText = byteText[:-1]
+            p = byteText[-1]
+
+    byteText = byteText[:-1]
+    return byteText
+
+    
 
 def decrypt_AES_CBC(cipher: bytes, key: bytes, iv: bytes) -> bytes:
     cipherChunks = split_bytes_in_chunks(cipher, AES.block_size)
