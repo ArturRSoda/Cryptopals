@@ -30,8 +30,6 @@ def unpad_pkcs7(byteText: bytes, blockSize: int = AES.block_size) -> bytes:
     return unpad(byteText, blockSize)
 
 def strip_padding_pkcs7(byteText: bytes, blockSize: int = AES.block_size) -> bytes:
-    print(len(byteText))
-    print(blockSize)
     if ((len(byteText) % blockSize) != 0):
         raise Exception("Error: Bad Padding")
 
