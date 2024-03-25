@@ -2,6 +2,7 @@ from Crypto.Cipher import AES
 
 
 BLOCK_SIZE = AES.block_size
+ASCII_TEXT_CHARS = list(range(97, 122)) + [32]
 
 FREQ_TABLE = {
     'a' : 0.08167,
@@ -37,6 +38,22 @@ def bytes_xor(b1: bytes, b2: bytes) -> bytes:
 
 def split_bytes_in_chunks(bt: bytes, size: int) -> list[bytes]:
     return [bt[i:i+size] for i in range(0, len(bt), size)]
+
+def attack_single_byte_key_xor(cipher: bytes) -> tuple[bytes, bytes]:
+    bestPlainText = b""
+    bestNLetter = 0
+    bestKeyStream = b""
+
+    for i in range(256):
+        keyStream = bytes([i])*len(cipher)
+        plainTextGuessed = bytes_xor(cipher, keyStream)
+        nLetter = sum([ x in ASCII_TEXT_CHARS for x in plainTextGuessed])
+        if (nLetter > bestNLetter):
+            bestPlainText = plainTextGuessed
+            bestNLetter = nLetter
+            bestKeyStream = keyStream
+
+    return (bestPlainText, bestKeyStream)
 
 def encrypt_AES_CTR(plainText: bytes, key: bytes, nonce: bytes, counter: int = 0) -> bytes:
     if (not isinstance(counter, int)):
